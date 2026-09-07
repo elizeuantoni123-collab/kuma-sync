@@ -1,0 +1,20 @@
+﻿# kuma-sync - arquivo de configuracao de exemplo
+client: "Minha Empresa"
+instance_url: "http://localhost:3001"
+
+monitors:
+  - name: "Google"
+    type: http
+    url: "https://google.com"
+    interval: 60
+
+  - name: "Meu Site"
+    type: http
+    url: "https://meusite.com.br"
+    interval: 60
+    method: GET
+
+  - name: "Servidor Principal"
+    type: ping
+    hostname: "192.168.1.1"
+    interval: 120
