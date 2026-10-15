@@ -1,0 +1,56 @@
+name: Build V0 Mobile APK 5
+
+on:
+  push:
+    branches: [ v0-mobile-android-build ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore source
+        run: |
+          base64 -d v0_source.tar.gz.b64 > /tmp/v0.tar.gz
+          tar -xzf /tmp/v0.tar.gz -C "$GITHUB_WORKSPACE"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Validate and test
+        run: |
+          python3 scripts/validate_project.py
+          bash scripts/test_host.sh
+      - name: Build APK
+        run: gradle --no-daemon --stacktrace clean assembleDebug
+      - name: Verify APK
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -v 4 "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK"
+          sha256sum "$APK" | tee APK_SHA256.txt
+          cp "$APK" V0_MOBILE_ANDROID_DEBUG.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V0_MOBILE_ANDROID_DEBUG_API36
+          path: |
+            V0_MOBILE_ANDROID_DEBUG.apk
+            APK_SHA256.txt
+          if-no-files-found: error
+          retention-days: 14
