@@ -7,10 +7,10 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.antony.legendador.v9"
+        applicationId = "com.antony.legendador.v10"
         minSdk = 29
         targetSdk = 35
-        versionCode = 9
-        versionName = "9.0"
+        versionCode = 10
+        versionName = "10.0"
     }
 }
