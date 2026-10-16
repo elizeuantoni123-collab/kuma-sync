@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
         webView.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+        webView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
         setContentView(webView);
 
         WebSettings s = webView.getSettings();
@@ -61,8 +62,9 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                injectAssetJavascript(view, "v5_patch.js");
-                injectAssetJavascript(view, "v6_patch.js");
+                injectAssetJavascript(view, "v7_patch.js");
+                injectAssetJavascript(view, "v8_patch.js");
+                injectAssetJavascript(view, "v9_patch.js");
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
