@@ -62,6 +62,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 injectAssetJavascript(view, "v5_patch.js");
+                injectAssetJavascript(view, "v6_patch.js");
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
