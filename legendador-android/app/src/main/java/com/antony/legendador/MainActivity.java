@@ -47,7 +47,15 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                view.evaluateJavascript(
+                        "(function(){var s=document.createElement('script');s.src='export_fix.js';document.body.appendChild(s);})();",
+                        null);
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
@@ -152,7 +160,7 @@ public class MainActivity extends Activity {
                 done.put(MediaStore.MediaColumns.IS_PENDING, 0);
                 resolver.update(session.uri, done, null, null);
                 runOnUiThread(() -> Toast.makeText(MainActivity.this,
-                        "Arquivo salvo em Legendador", Toast.LENGTH_SHORT).show());
+                        "Vídeo salvo em Filmes/Legendador", Toast.LENGTH_LONG).show());
             } catch (Exception e) {
                 resolver.delete(session.uri, null, null);
                 throw new RuntimeException(e);
