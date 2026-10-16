@@ -18,7 +18,11 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,11 +55,16 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                view.evaluateJavascript(
-                        "(function(){var s=document.createElement('script');s.src='export_fix.js';document.body.appendChild(s);})();",
-                        null);
+                try {
+                    view.evaluateJavascript(readAsset("export_fix.js"), null);
+                    view.evaluateJavascript(readAsset("ux_fix.js"), null);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this,
+                            "Falha ao carregar os controles do editor.", Toast.LENGTH_LONG).show();
+                }
             }
         });
+
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
@@ -68,14 +77,42 @@ public class MainActivity extends Activity {
                     startActivityForResult(intent, FILE_CHOOSER_REQUEST);
                 } catch (Exception e) {
                     fileCallback = null;
-                    Toast.makeText(MainActivity.this, "Não foi possível abrir os arquivos.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this,
+                            "Não foi possível abrir os arquivos.", Toast.LENGTH_LONG).show();
                 }
                 return true;
             }
         });
 
         webView.addJavascriptInterface(new AndroidSaver(getContentResolver()), "AndroidSave");
-        webView.loadUrl("file:///android_asset/index.html");
+
+        try {
+            // Usa uma origem HTTPS sintética. Blob URLs criados pelo seletor de mídia
+            // passam a pertencer à mesma origem da página e o canvas permanece origin-clean,
+            // permitindo canvas.captureStream() durante a exportação de vídeo.
+            String html = readAsset("index.html");
+            webView.loadDataWithBaseURL(
+                    "https://legendador.local/",
+                    html,
+                    "text/html",
+                    "UTF-8",
+                    null);
+        } catch (Exception e) {
+            Toast.makeText(this, "Não foi possível abrir o editor.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private String readAsset(String name) throws Exception {
+        StringBuilder out = new StringBuilder();
+        try (InputStream input = getAssets().open(name);
+             BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(input, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                out.append(line).append('\n');
+            }
+        }
+        return out.toString();
     }
 
     @Override
@@ -119,11 +156,19 @@ public class MainActivity extends Activity {
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, sanitize(fileName));
                 values.put(MediaStore.MediaColumns.MIME_TYPE,
-                        mimeType == null || mimeType.isBlank() ? "application/octet-stream" : mimeType);
+                        mimeType == null || mimeType.isBlank()
+                                ? "application/octet-stream" : mimeType);
                 values.put(MediaStore.MediaColumns.IS_PENDING, 1);
-                if (video) values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Legendador");
-                else if (image) values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Legendador");
-                else values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Legendador");
+                if (video) {
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_MOVIES + "/Legendador");
+                } else if (image) {
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_PICTURES + "/Legendador");
+                } else {
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_DOWNLOADS + "/Legendador");
+                }
 
                 Uri uri = resolver.insert(collection, values);
                 if (uri == null) throw new IllegalStateException("MediaStore não criou o arquivo");
@@ -177,7 +222,9 @@ public class MainActivity extends Activity {
         }
 
         private String sanitize(String s) {
-            if (s == null || s.isBlank()) return "legendador-" + System.currentTimeMillis();
+            if (s == null || s.isBlank()) {
+                return "legendador-" + System.currentTimeMillis();
+            }
             return s.replaceAll("[\\\\/:*?\"<>|]", "_");
         }
     }
@@ -185,6 +232,7 @@ public class MainActivity extends Activity {
     private static class SaveSession {
         final Uri uri;
         final OutputStream out;
+
         SaveSession(Uri uri, OutputStream out) {
             this.uri = uri;
             this.out = out;
