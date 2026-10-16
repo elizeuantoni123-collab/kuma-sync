@@ -3,6 +3,8 @@
     <application
         android:allowBackup="true"
         android:label="Legendador de Imóveis"
+        android:icon="@drawable/ic_legendador"
+        android:roundIcon="@drawable/ic_legendador"
         android:theme="@style/Theme.Legendador"
         android:usesCleartextTraffic="false">
         <activity
