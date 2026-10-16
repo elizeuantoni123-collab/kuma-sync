@@ -50,7 +50,13 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                injectAssetJavascript(view, "v4_patch.js");
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
@@ -73,15 +79,30 @@ public class MainActivity extends Activity {
         loadEditorWithSecureOrigin();
     }
 
-    private void loadEditorWithSecureOrigin() {
-        try (InputStream in = getAssets().open("index.html")) {
+    private String readAssetText(String name) throws Exception {
+        try (InputStream in = getAssets().open(name)) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int read;
             while ((read = in.read(buffer)) != -1) {
                 out.write(buffer, 0, read);
             }
-            String html = new String(out.toByteArray(), StandardCharsets.UTF_8);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private void injectAssetJavascript(WebView view, String assetName) {
+        try {
+            String javascript = readAssetText(assetName);
+            view.evaluateJavascript(javascript, null);
+        } catch (Exception e) {
+            Toast.makeText(this, "Falha ao carregar os controles do editor.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void loadEditorWithSecureOrigin() {
+        try {
+            String html = readAssetText("index.html");
             webView.loadDataWithBaseURL("https://legendador.local/", html, "text/html", "UTF-8", null);
         } catch (Exception e) {
             Toast.makeText(this, "Falha ao abrir o editor.", Toast.LENGTH_LONG).show();
