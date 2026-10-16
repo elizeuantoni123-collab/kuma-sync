@@ -111,3 +111,138 @@
     };
   }
 })();
+
+(() => {
+  'use strict';
+
+  const mainInput = document.getElementById('file');
+  const overlayInput = document.getElementById('overlayFile');
+  if (!mainInput || !overlayInput) return;
+
+  function sourceIsClean(source) {
+    const test = document.createElement('canvas');
+    test.width = 2;
+    test.height = 2;
+    const tctx = test.getContext('2d', {willReadFrequently:true});
+    tctx.drawImage(source, 0, 0, 2, 2);
+    tctx.getImageData(0, 0, 1, 1);
+    return true;
+  }
+
+  async function cloneFile(file) {
+    const bytes = await file.arrayBuffer();
+    return new Blob([bytes], {type:file.type || 'application/octet-stream'});
+  }
+
+  async function loadMainFile(file) {
+    if (!file) return;
+    const msg = document.getElementById('msg');
+    try {
+      if (msg) msg.textContent = 'Preparando mídia com origem segura...';
+      const safeBlob = await cloneFile(file);
+      const url = URL.createObjectURL(safeBlob);
+      const type = String(file.type || '').toLowerCase();
+
+      if (type.startsWith('video/')) {
+        const v = document.createElement('video');
+        v.loop = true;
+        v.muted = true;
+        v.playsInline = true;
+        v.preload = 'auto';
+        v.onerror = () => { if (msg) msg.textContent = 'Não foi possível abrir o vídeo selecionado.'; };
+        v.onloadeddata = () => {
+          try {
+            sourceIsClean(v);
+          } catch (_) {
+            URL.revokeObjectURL(url);
+            if (msg) msg.textContent = 'Este vídeo ainda foi bloqueado pelo Android. Tente selecionar novamente.';
+            return;
+          }
+          setMedia(v, 'video', v.videoWidth, v.videoHeight);
+          if (msg) msg.textContent = 'Vídeo carregado com origem segura. Pronto para exportar.';
+          v.play().catch(() => {});
+        };
+        v.src = url;
+        v.load();
+      } else {
+        const img = new Image();
+        img.onerror = () => { if (msg) msg.textContent = 'Não foi possível abrir a imagem selecionada.'; };
+        img.onload = () => {
+          try {
+            sourceIsClean(img);
+          } catch (_) {
+            URL.revokeObjectURL(url);
+            if (msg) msg.textContent = 'Esta imagem foi bloqueada pelo Android.';
+            return;
+          }
+          setMedia(img, 'image', img.naturalWidth, img.naturalHeight);
+          if (msg) msg.textContent = 'Imagem carregada com origem segura.';
+        };
+        img.src = url;
+      }
+    } catch (e) {
+      if (msg) msg.textContent = 'Não foi possível preparar a mídia: ' + (e && e.message ? e.message : e);
+    }
+  }
+
+  async function loadOverlayFile(file) {
+    if (!file) return;
+    const msg = document.getElementById('msg');
+    try {
+      const safeBlob = await cloneFile(file);
+      const url = URL.createObjectURL(safeBlob);
+      const img = new Image();
+      img.onerror = () => { if (msg) msg.textContent = 'Não foi possível abrir a imagem de sobreposição.'; };
+      img.onload = () => {
+        try {
+          sourceIsClean(img);
+        } catch (_) {
+          URL.revokeObjectURL(url);
+          if (msg) msg.textContent = 'A imagem de sobreposição foi bloqueada pelo Android.';
+          return;
+        }
+        layers.push(mk({img, size:28, x:.5, y:.8}));
+        select(layers.length - 1, 0);
+        renderLayerButtons();
+        setTab('text');
+      };
+      img.src = url;
+    } catch (e) {
+      if (msg) msg.textContent = 'Não foi possível preparar a imagem: ' + (e && e.message ? e.message : e);
+    }
+  }
+
+  mainInput.onchange = e => {
+    const f = e.target.files && e.target.files[0];
+    if (f) loadMainFile(f);
+  };
+  overlayInput.onchange = e => {
+    const f = e.target.files && e.target.files[0];
+    if (f) loadOverlayFile(f);
+  };
+
+  const exportBtn = document.getElementById('export');
+  if (exportBtn && exportBtn.onclick) {
+    const previousExport = exportBtn.onclick;
+    exportBtn.onclick = async function(e) {
+      if (typeof media !== 'undefined' && media) {
+        let clean = true;
+        try { ctx.getImageData(0, 0, 1, 1); } catch (_) { clean = false; }
+        if (!clean) {
+          const w = cv.width, h = cv.height;
+          cv.width = w;
+          cv.height = h;
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          try {
+            ctx.getImageData(0, 0, 1, 1);
+          } catch (_) {
+            const msg = document.getElementById('msg');
+            if (msg) msg.textContent = 'Não foi possível exportar: o vídeo ainda está com origem bloqueada. Selecione o vídeo novamente nesta versão.';
+            return;
+          }
+        }
+      }
+      return previousExport.call(this, e);
+    };
+  }
+})();
