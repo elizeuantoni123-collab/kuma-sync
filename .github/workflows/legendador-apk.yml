@@ -1,0 +1,45 @@
+name: Build Legendador APK
+
+on:
+  push:
+    branches:
+      - legendador-apk-build
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle -p legendador-android assembleDebug --stacktrace
+
+      - name: Rename APK
+        run: cp legendador-android/app/build/outputs/apk/debug/app-debug.apk Legendador.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Legendador-APK
+          path: Legendador.apk
+          if-no-files-found: error
+          compression-level: 0
